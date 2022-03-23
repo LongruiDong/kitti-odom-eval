@@ -1,0 +1,120 @@
+Sequence: 	 0 
+Trans. err. (%): 	 0.707 
+Rot. err. (deg/100m): 	 0.255 
+aa. errx. (deg/100m): 	 0.106 
+aa. erry. (deg/100m): 	 0.752 
+aa. errz. (deg/100m): 	 0.194 
+ATE (m): 	 1.264 
+RPE (m): 	 0.019 
+RPE (deg): 	 0.059 
+
+Sequence: 	 1 
+Trans. err. (%): 	 1.702 
+Rot. err. (deg/100m): 	 0.192 
+aa. errx. (deg/100m): 	 0.027 
+aa. erry. (deg/100m): 	 0.137 
+aa. errz. (deg/100m): 	 0.108 
+ATE (m): 	 12.591 
+RPE (m): 	 0.052 
+RPE (deg): 	 0.029 
+
+Sequence: 	 2 
+Trans. err. (%): 	 0.763 
+Rot. err. (deg/100m): 	 0.245 
+aa. errx. (deg/100m): 	 0.124 
+aa. erry. (deg/100m): 	 0.137 
+aa. errz. (deg/100m): 	 0.184 
+ATE (m): 	 6.003 
+RPE (m): 	 0.023 
+RPE (deg): 	 0.049 
+
+Sequence: 	 3 
+Trans. err. (%): 	 0.692 
+Rot. err. (deg/100m): 	 0.162 
+aa. errx. (deg/100m): 	 0.060 
+aa. erry. (deg/100m): 	 0.106 
+aa. errz. (deg/100m): 	 0.071 
+ATE (m): 	 0.628 
+RPE (m): 	 0.015 
+RPE (deg): 	 0.041 
+
+Sequence: 	 4 
+Trans. err. (%): 	 0.467 
+Rot. err. (deg/100m): 	 0.112 
+aa. errx. (deg/100m): 	 0.033 
+aa. erry. (deg/100m): 	 0.077 
+aa. errz. (deg/100m): 	 0.055 
+ATE (m): 	 0.192 
+RPE (m): 	 0.017 
+RPE (deg): 	 0.031 
+
+Sequence: 	 5 
+Trans. err. (%): 	 0.398 
+Rot. err. (deg/100m): 	 0.163 
+aa. errx. (deg/100m): 	 0.051 
+aa. erry. (deg/100m): 	 0.284 
+aa. errz. (deg/100m): 	 0.156 
+ATE (m): 	 0.795 
+RPE (m): 	 0.013 
+RPE (deg): 	 0.041 
+
+Sequence: 	 6 
+Trans. err. (%): 	 0.565 
+Rot. err. (deg/100m): 	 0.167 
+aa. errx. (deg/100m): 	 0.164 
+aa. erry. (deg/100m): 	 4.671 
+aa. errz. (deg/100m): 	 0.209 
+ATE (m): 	 0.899 
+RPE (m): 	 0.014 
+RPE (deg): 	 0.032 
+
+Sequence: 	 7 
+Trans. err. (%): 	 0.478 
+Rot. err. (deg/100m): 	 0.277 
+aa. errx. (deg/100m): 	 0.120 
+aa. erry. (deg/100m): 	 0.701 
+aa. errz. (deg/100m): 	 0.233 
+ATE (m): 	 0.486 
+RPE (m): 	 0.013 
+RPE (deg): 	 0.039 
+
+Sequence: 	 0 
+Trans. err. (%): 	 0.707 
+Rot. err. (deg/100m): 	 0.255 
+aa. errx. (deg/100m): 	 0.106 
+aa. erry. (deg/100m): 	 0.752 
+aa. errz. (deg/100m): 	 0.194 
+ATE (m): 	 1.264 
+RPE (m): 	 0.019 
+RPE (deg): 	 0.059 
+
+Sequence: 	 8 
+Trans. err. (%): 	 1.050 
+Rot. err. (deg/100m): 	 0.326 
+aa. errx. (deg/100m): 	 0.100 
+aa. erry. (deg/100m): 	 1.785 
+aa. errz. (deg/100m): 	 0.219 
+ATE (m): 	 3.800 
+RPE (m): 	 0.025 
+RPE (deg): 	 0.045 
+
+Sequence: 	 9 
+Trans. err. (%): 	 0.874 
+Rot. err. (deg/100m): 	 0.245 
+aa. errx. (deg/100m): 	 0.107 
+aa. erry. (deg/100m): 	 0.188 
+aa. errz. (deg/100m): 	 0.207 
+ATE (m): 	 3.478 
+RPE (m): 	 0.019 
+RPE (deg): 	 0.045 
+
+Sequence: 	 10 
+Trans. err. (%): 	 0.628 
+Rot. err. (deg/100m): 	 0.313 
+aa. errx. (deg/100m): 	 0.166 
+aa. erry. (deg/100m): 	 0.104 
+aa. errz. (deg/100m): 	 0.238 
+ATE (m): 	 1.108 
+RPE (m): 	 0.015 
+RPE (deg): 	 0.050 
+

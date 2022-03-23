@@ -1,5 +1,6 @@
 # Copyright (C) Huangying Zhan 2019. All rights reserved.
-
+# -*- coding:utf8 -*-
+import sophus as sp #李代数变换需要  https://github.com/craigstar/SophusPy
 import copy
 from matplotlib import pyplot as plt
 import numpy as np
@@ -134,7 +135,7 @@ class KittiEvalOdom():
         Args:
             pose_error (4x4 array): relative pose error
         Returns:
-            rot_error (float): rotation error
+            rot_error (float): rotation error rads
         """
         a = pose_error[0, 0]
         b = pose_error[1, 1]
@@ -142,6 +143,23 @@ class KittiEvalOdom():
         d = 0.5*(a+b+c-1.0)
         rot_error = np.arccos(max(min(d, 1.0), -1.0))
         return rot_error
+
+    def axisangle_error(self, pose_delta_gt, pose_delta_result):
+        """Compute error vector of relative pose's axis angle between gt and est: abs(aa(gt)-aa(result))
+        Args:
+            pose_delta_gt (4x4 array): relative pose of gt
+            pose_delta_result (4x4 array): relative pose of result
+        Returns:
+            aa_error (3x1 array): error vector rads
+        """
+        R_gt = sp.to_orthogonal(pose_delta_gt[0:3,0:3])
+        R_result = sp.to_orthogonal(pose_delta_result[0:3,0:3])
+        SO_gt = sp.SO3(R_gt)
+        SO_result = sp.SO3(R_result)
+        aa_gt = SO_gt.log()
+        aa_result = SO_result.log()
+        aa_error = np.fabs(aa_gt-aa_result)
+        return aa_error
 
     def translation_error(self, pose_error):
         """Compute translation error
@@ -177,16 +195,19 @@ class KittiEvalOdom():
             poses_gt (dict): {idx: 4x4 array}, ground truth poses
             poses_result (dict): {idx: 4x4 array}, predicted poses
         Returns:
-            err (list list): [first_frame, rotation error, translation error, length, speed]
+            err (list list): [first_frame, rotation error, translation error, length, speed, aa_error_x, aa_error_y, aa_error_z]
                 - first_frame: frist frame index
                 - rotation error: rotation error per length
                 - translation error: translation error per length
                 - length: evaluation trajectory length
                 - speed: car speed (#FIXME: 10FPS is assumed)
+                - axis_angle err _x : aa_error[0] per length 
+                - axis_angle err _y : aa_error[1] per length
+                - axis_angle err _z : aa_error[2] per length
         """
         err = []
         dist = self.trajectory_distances(poses_gt)
-        self.step_size = 10
+        self.step_size = 10 #kitti 10Hz
 
         for first_frame in range(0, len(poses_gt), self.step_size):
             for i in range(self.num_lengths):
@@ -218,11 +239,13 @@ class KittiEvalOdom():
                 r_err = self.rotation_error(pose_error)
                 t_err = self.translation_error(pose_error)
 
+                # 统计一段相对位姿 gt 和 est 之间 旋转向量 各分量的差值
+                aa_err = self.axisangle_error(pose_delta_gt, pose_delta_result)
                 # compute speed
                 num_frames = last_frame - first_frame + 1.0
                 speed = len_/(0.1*num_frames)
-
-                err.append([first_frame, r_err/len_, t_err/len_, len_, speed])
+                # 增加 aa_x aa_y aa_z 上的每m误差rads
+                err.append([first_frame, r_err/len_, t_err/len_, len_, speed, aa_err[0]/len_, aa_err[1]/len_, aa_err[2]/len_])
         return err
         
     def save_sequence_errors(self, err, file_name):
@@ -240,15 +263,21 @@ class KittiEvalOdom():
     def compute_overall_err(self, seq_err):
         """Compute average translation & rotation errors
         Args:
-            seq_err (list list): [[r_err, t_err],[r_err, t_err],...]
+            seq_err (list list): [[r_err, t_err],[r_err, t_err],...]  其实还是err 结构体
                 - r_err (float): rotation error
                 - t_err (float): translation error
         Returns:
             ave_t_err (float): average translation error
             ave_r_err (float): average rotation error
+            ave_aa_err_x (float): average axis angle error_x
+            ave_aa_err_y (float): average axis angle error_y
+            ave_aa_err_z (float): average axis angle error_z
         """
         t_err = 0
         r_err = 0
+        aa_err_x = 0
+        aa_err_y = 0
+        aa_err_z = 0
 
         seq_len = len(seq_err)
 
@@ -256,9 +285,15 @@ class KittiEvalOdom():
             for item in seq_err:
                 r_err += item[1]
                 t_err += item[2]
+                aa_err_x += item[5]
+                aa_err_y += item[6]
+                aa_err_z += item[7]
             ave_t_err = t_err / seq_len
             ave_r_err = r_err / seq_len
-            return ave_t_err, ave_r_err
+            ave_aa_err_x = aa_err_x / seq_len
+            ave_aa_err_y = aa_err_y / seq_len
+            ave_aa_err_z = aa_err_z / seq_len
+            return ave_t_err, ave_r_err, ave_aa_err_x, ave_aa_err_y, ave_aa_err_z
         else:
             return 0, 0
 
@@ -304,7 +339,7 @@ class KittiEvalOdom():
     def plot_error(self, avg_segment_errs, seq):
         """Plot per-length error
         Args:
-            avg_segment_errs (dict): {100:[avg_t_err, avg_r_err],...}
+            avg_segment_errs (dict): {100:[avg_t_err, avg_r_err, avg_aa_err_x, avg_aa_err_y, avg_aa_err_z],...}
             seq (int): sequence index.
         """
         # Translation error
@@ -347,17 +382,117 @@ class KittiEvalOdom():
         plt.savefig(fig_pdf, bbox_inches='tight', pad_inches=0)
         plt.close(fig)
 
+        # add plot 3 figure
+
+        # aa_err_x
+        plot_y = []
+        plot_x = []
+        for len_ in self.lengths:
+            plot_x.append(len_)
+            if len(avg_segment_errs[len_]) > 0:
+                plot_y.append(avg_segment_errs[len_][2] / np.pi * 180 * 100)
+            else:
+                plot_y.append(0)
+        fontsize_ = 10
+        fig = plt.figure()
+        plt.plot(plot_x, plot_y, "bs-", label="Axisangle Error-x")
+        plt.ylabel('Axisangle Error-x (deg/100m)', fontsize=fontsize_)
+        plt.xlabel('Path Length (m)', fontsize=fontsize_)
+        plt.legend(loc="upper right", prop={'size': fontsize_})
+        fig.set_size_inches(5, 5)
+        fig_pdf = self.plot_error_dir + "/aa_errx_{:02}.pdf".format(seq)
+        plt.savefig(fig_pdf, bbox_inches='tight', pad_inches=0)
+        plt.close(fig)
+        # aa_err_y
+        plot_y = []
+        plot_x = []
+        for len_ in self.lengths:
+            plot_x.append(len_)
+            if len(avg_segment_errs[len_]) > 0:
+                plot_y.append(avg_segment_errs[len_][3] / np.pi * 180 * 100)
+            else:
+                plot_y.append(0)
+        fontsize_ = 10
+        fig = plt.figure()
+        plt.plot(plot_x, plot_y, "bs-", label="Axisangle Error-y")
+        plt.ylabel('Axisangle Error-y (deg/100m)', fontsize=fontsize_)
+        plt.xlabel('Path Length (m)', fontsize=fontsize_)
+        plt.legend(loc="upper right", prop={'size': fontsize_})
+        fig.set_size_inches(5, 5)
+        fig_pdf = self.plot_error_dir + "/aa_erry_{:02}.pdf".format(seq)
+        plt.savefig(fig_pdf, bbox_inches='tight', pad_inches=0)
+        plt.close(fig)
+        # aa_err_z
+        plot_y = []
+        plot_x = []
+        for len_ in self.lengths:
+            plot_x.append(len_)
+            if len(avg_segment_errs[len_]) > 0:
+                plot_y.append(avg_segment_errs[len_][4] / np.pi * 180 * 100)
+            else:
+                plot_y.append(0)
+        fontsize_ = 10
+        fig = plt.figure()
+        plt.plot(plot_x, plot_y, "bs-", label="Axisangle Error-z")
+        plt.ylabel('Axisangle Error-z (deg/100m)', fontsize=fontsize_)
+        plt.xlabel('Path Length (m)', fontsize=fontsize_)
+        plt.legend(loc="upper right", prop={'size': fontsize_})
+        fig.set_size_inches(5, 5)
+        fig_pdf = self.plot_error_dir + "/aa_errz_{:02}.pdf".format(seq)
+        plt.savefig(fig_pdf, bbox_inches='tight', pad_inches=0)
+        plt.close(fig)
+    
+    def save_error(self, avg_segment_errs, seq):
+        """save per-length error
+        Args:
+            avg_segment_errs (dict): {100:[avg_t_err, avg_r_err, avg_aa_err_x, avg_aa_err_y, avg_aa_err_z],...}
+            seq (int): sequence index.
+        """
+        tl_txt = os.path.join(self.plot_error_dir, '{:02}_tl.txt'.format(seq))
+        rl_txt = os.path.join(self.plot_error_dir, '{:02}_rl.txt'.format(seq))
+        ax_txt = os.path.join(self.plot_error_dir, '{:02}_ax.txt'.format(seq))
+        ay_txt = os.path.join(self.plot_error_dir, '{:02}_ay.txt'.format(seq))
+        az_txt = os.path.join(self.plot_error_dir, '{:02}_az.txt'.format(seq))
+
+        ftl = open(tl_txt, 'w')
+        frl = open(rl_txt, 'w')
+        fax = open(ax_txt, 'w')
+        fay = open(ay_txt, 'w')
+        faz = open(az_txt, 'w')
+
+        for len_ in self.lengths:
+            if len(avg_segment_errs[len_]) > 0:
+                ftl.write('{:d} {:.4f}\n'.format(len_, avg_segment_errs[len_][0] * 100))
+                frl.write('{:d} {:.4f}\n'.format(len_, avg_segment_errs[len_][1] / np.pi * 180 * 100))
+                fax.write('{:d} {:.4f}\n'.format(len_, avg_segment_errs[len_][2] / np.pi * 180 * 100))
+                fay.write('{:d} {:.4f}\n'.format(len_, avg_segment_errs[len_][3] / np.pi * 180 * 100))
+                faz.write('{:d} {:.4f}\n'.format(len_, avg_segment_errs[len_][4] / np.pi * 180 * 100))
+            else:
+                pass
+
+        ftl.close()
+        frl.close()
+        fax.close()
+        fay.close()
+        faz.close()
+
+
+
+
     def compute_segment_error(self, seq_errs):
         """This function calculates average errors for different segment.
         Args:
-            seq_errs (list list): list of errs; [first_frame, rotation error, translation error, length, speed]
+            seq_errs (list list): list of errs; [first_frame, rotation error, translation error, length, speed, aa_error_x, aa_error_y, aa_error_z]
                 - first_frame: frist frame index
                 - rotation error: rotation error per length
                 - translation error: translation error per length
                 - length: evaluation trajectory length
                 - speed: car speed (#FIXME: 10FPS is assumed)
+                - axis_angle err _x : aa_error[0] per length 
+                - axis_angle err _y : aa_error[1] per length
+                - axis_angle err _z : aa_error[2] per length
         Returns:
-            avg_segment_errs (dict): {100:[avg_t_err, avg_r_err],...}    
+            avg_segment_errs (dict): {100:[avg_t_err, avg_r_err, avg_aa_err_x, avg_aa_err_y, avg_aa_err_z],...}    
         """
 
         segment_errs = {}
@@ -370,14 +505,20 @@ class KittiEvalOdom():
             len_ = err[3]
             t_err = err[2]
             r_err = err[1]
-            segment_errs[len_].append([t_err, r_err])
+            aa_err_x = err[5]
+            aa_err_y = err[6]
+            aa_err_z = err[7]
+            segment_errs[len_].append([t_err, r_err, aa_err_x, aa_err_y, aa_err_z])
 
         # Compute average
         for len_ in self.lengths:
             if segment_errs[len_] != []:
                 avg_t_err = np.mean(np.asarray(segment_errs[len_])[:, 0])
                 avg_r_err = np.mean(np.asarray(segment_errs[len_])[:, 1])
-                avg_segment_errs[len_] = [avg_t_err, avg_r_err]
+                avg_aa_err_x = np.mean(np.asarray(segment_errs[len_])[:, 2])
+                avg_aa_err_y = np.mean(np.asarray(segment_errs[len_])[:, 3])
+                avg_aa_err_z = np.mean(np.asarray(segment_errs[len_])[:, 4])
+                avg_segment_errs[len_] = [avg_t_err, avg_r_err, avg_aa_err_x, avg_aa_err_y, avg_aa_err_z]
             else:
                 avg_segment_errs[len_] = []
         return avg_segment_errs
@@ -409,7 +550,7 @@ class KittiEvalOdom():
             # print("pred: ", pred_xyz)
             # input("debug")
             errors.append(np.sqrt(np.sum(align_err ** 2)))
-        ate = np.sqrt(np.mean(np.asarray(errors) ** 2)) 
+        ate = np.sqrt(np.mean(np.asarray(errors) ** 2))  #ate rmse
         return ate
     
     def compute_RPE(self, gt, pred):
@@ -423,7 +564,7 @@ class KittiEvalOdom():
         """
         trans_errors = []
         rot_errors = []
-        for i in list(pred.keys())[:-1]:
+        for i in list(pred.keys())[:-1]: # 看来这里默认 间距为1帧 all pair 然后取平均
             gt1 = gt[i]
             gt2 = gt[i+1]
             gt_rel = np.linalg.inv(gt1) @ gt2
@@ -435,8 +576,8 @@ class KittiEvalOdom():
             
             trans_errors.append(self.translation_error(rel_err))
             rot_errors.append(self.rotation_error(rel_err))
-        # rpe_trans = np.sqrt(np.mean(np.asarray(trans_errors) ** 2))
-        # rpe_rot = np.sqrt(np.mean(np.asarray(rot_errors) ** 2))
+        # rpe_trans = np.sqrt(np.mean(np.asarray(trans_errors) ** 2)) #rmse
+        # rpe_rot = np.sqrt(np.mean(np.asarray(rot_errors) ** 2)) #mean 可选！
         rpe_trans = np.mean(np.asarray(trans_errors))
         rpe_rot = np.mean(np.asarray(rot_errors))
         return rpe_trans, rpe_rot
@@ -469,13 +610,16 @@ class KittiEvalOdom():
         Args:
             f (IOWrapper)
             seq (int): sequence number
-            errs (list): [ave_t_err, ave_r_err, ate, rpe_trans, rpe_rot]
+            errs (list): [ave_t_err, ave_r_err, ave_aa_err_x, ave_aa_err_y, ave_aa_err_z, ate, rpe_trans, rpe_rot]
         """
-        ave_t_err, ave_r_err, ate, rpe_trans, rpe_rot = errs
+        ave_t_err, ave_r_err, ave_aa_err_x, ave_aa_err_y, ave_aa_err_z, ate, rpe_trans, rpe_rot = errs
         lines = []
         lines.append("Sequence: \t {} \n".format(seq) )
         lines.append("Trans. err. (%): \t {:.3f} \n".format(ave_t_err*100))
         lines.append("Rot. err. (deg/100m): \t {:.3f} \n".format(ave_r_err/np.pi*180*100))
+        lines.append("aa. errx. (deg/100m): \t {:.3f} \n".format(ave_aa_err_x/np.pi*180*100))
+        lines.append("aa. erry. (deg/100m): \t {:.3f} \n".format(ave_aa_err_y/np.pi*180*100))
+        lines.append("aa. errz. (deg/100m): \t {:.3f} \n".format(ave_aa_err_z/np.pi*180*100))
         lines.append("ATE (m): \t {:.3f} \n".format(ate))
         lines.append("RPE (m): \t {:.3f} \n".format(rpe_trans))
         lines.append("RPE (deg): \t {:.3f} \n\n".format(rpe_rot * 180 /np.pi))
@@ -505,6 +649,9 @@ class KittiEvalOdom():
         self.gt_dir = gt_dir
         ave_t_errs = []
         ave_r_errs = []
+        ave_aa_errs_x = []
+        ave_aa_errs_y = []
+        ave_aa_errs_z = []
         seq_ate = []
         seq_rpe_trans = []
         seq_rpe_rot = []
@@ -541,7 +688,7 @@ class KittiEvalOdom():
             poses_gt = self.load_poses_from_txt(self.gt_dir + "/" + file_name)
             self.result_file_name = result_dir+file_name
 
-            # Pose alignment to first frame
+            # Pose alignment to first frame first pose is I
             idx_0 = sorted(list(poses_result.keys()))[0]
             pred_0 = poses_result[idx_0]
             gt_0 = poses_gt[idx_0]
@@ -572,20 +719,26 @@ class KittiEvalOdom():
                     if alignment=="7dof" or alignment=="6dof":
                         poses_result[cnt] = align_transformation @ poses_result[cnt]
 
-            # compute sequence errors
+            # compute sequence errors add aa_err
             seq_err = self.calc_sequence_errors(poses_gt, poses_result)
-            self.save_sequence_errors(seq_err, error_dir + "/" + file_name)
+            self.save_sequence_errors(seq_err, error_dir + "/" + file_name) # 按照error列表 实际元素保存
 
-            # Compute segment errors
+            # Compute segment errors add aa_err
             avg_segment_errs = self.compute_segment_error(seq_err)
 
-            # compute overall error
-            ave_t_err, ave_r_err = self.compute_overall_err(seq_err)
+            # compute overall error kitti metric add aa_err
+            ave_t_err, ave_r_err, ave_aa_err_x, ave_aa_err_y, ave_aa_err_z = self.compute_overall_err(seq_err)
             print("Sequence: " + str(i))
             print("Translational error (%): ", ave_t_err*100)
             print("Rotational error (deg/100m): ", ave_r_err/np.pi*180*100)
+            print("aa-x error (deg/100m): ", ave_aa_err_x/np.pi*180*100)
+            print("aa-y error (deg/100m): ", ave_aa_err_y/np.pi*180*100)
+            print("aa-z error (deg/100m): ", ave_aa_err_z/np.pi*180*100)
             ave_t_errs.append(ave_t_err)
             ave_r_errs.append(ave_r_err)
+            ave_aa_errs_x.append(ave_aa_err_x)
+            ave_aa_errs_y.append(ave_aa_err_y)
+            ave_aa_errs_z.append(ave_aa_err_z)
 
             # Compute ATE
             ate = self.compute_ATE(poses_gt, poses_result)
@@ -602,16 +755,151 @@ class KittiEvalOdom():
             # Plotting
             self.plot_trajectory(poses_gt, poses_result, i)
             self.plot_error(avg_segment_errs, i)
+            self.save_error(avg_segment_errs, i) #save stat 便于画图
 
             # Save result summary
-            self.write_result(f, i, [ave_t_err, ave_r_err, ate, rpe_trans, rpe_rot])
+            self.write_result(f, i, [ave_t_err, ave_r_err, ave_aa_err_x, ave_aa_err_y, ave_aa_err_z, ate, rpe_trans, rpe_rot])
             
         f.close()    
 
-        print("-------------------- For Copying ------------------------------")
-        for i in range(len(ave_t_errs)):
-            print("{0:.2f}".format(ave_t_errs[i]*100))
-            print("{0:.2f}".format(ave_r_errs[i]/np.pi*180*100))
-            print("{0:.2f}".format(seq_ate[i]))
-            print("{0:.3f}".format(seq_rpe_trans[i]))
-            print("{0:.3f}".format(seq_rpe_rot[i] * 180 / np.pi))
+        # print("-------------------- For Copying ------------------------------")
+        # for i in range(len(ave_t_errs)):
+        #     print("{0:.2f}".format(ave_t_errs[i]*100))
+        #     print("{0:.2f}".format(ave_r_errs[i]/np.pi*180*100))
+        #     print("{0:.2f}".format(ave_aa_errs_x[i]/np.pi*180*100))
+        #     print("{0:.2f}".format(ave_aa_errs_y[i]/np.pi*180*100))
+        #     print("{0:.2f}".format(ave_aa_errs_z[i]/np.pi*180*100))
+        #     print("{0:.2f}".format(seq_ate[i]))
+        #     print("{0:.3f}".format(seq_rpe_trans[i]))
+        #     print("{0:.3f}".format(seq_rpe_rot[i] * 180 / np.pi))
+
+
+    def rotcomp(self, full_dir, dponly_dir,
+                seqs=None):
+        """
+        为了ablation study 对旋转结果的比较
+        两个方法每个距离的误差曲线放在同一个图里 
+        full_dir: ourfull
+        dponly_dir: localgoptvponly
+        seqs: 设置只画给定序列
+        """
+
+        seq_list = ["{:02}".format(i) for i in range(0, 11)]
+
+        out_dir = 'result/ablation' 
+        if not os.path.exists(out_dir):
+            os.makedirs(out_dir)
+        
+        #读取该序列下结果文件
+        full_errdir = os.path.join(full_dir,'plot_error')
+        dponly_errdir = os.path.join(dponly_dir,'plot_error')
+        print('our full: ', full_dir)
+        print('directon only: ', dponly_dir)
+        # Create evaluation list
+        if seqs is None:
+            available_seqs = sorted(glob(os.path.join(full_dir, "*.txt")))
+            self.eval_seqs = [int(i[-6:-4]) for i in available_seqs if i[-6:-4] in seq_list]
+        else:
+            self.eval_seqs = seqs
+        
+        # evaluation
+        for i in self.eval_seqs:
+            # self.cur_seq = i
+            self.cur_seq = '{:02}'.format(i)
+            print("Sequence: " + self.cur_seq)
+            # aa_x
+            aa_errx_full = np.loadtxt(os.path.join(full_errdir,self.cur_seq+'_ax.txt'))
+            aa_errx_dpol = np.loadtxt(os.path.join(dponly_errdir,self.cur_seq+'_ax.txt'))
+            # aa_y
+            aa_erry_full = np.loadtxt(os.path.join(full_errdir,self.cur_seq+'_ay.txt'))
+            aa_erry_dpol = np.loadtxt(os.path.join(dponly_errdir,self.cur_seq+'_ay.txt'))
+            # aa_z
+            aa_errz_full = np.loadtxt(os.path.join(full_errdir,self.cur_seq+'_az.txt'))
+            aa_errz_dpol = np.loadtxt(os.path.join(dponly_errdir,self.cur_seq+'_az.txt'))
+
+            # rot
+            rot_err_full = np.loadtxt(os.path.join(full_errdir,self.cur_seq+'_rl.txt'))
+            rot_err_dpol = np.loadtxt(os.path.join(dponly_errdir,self.cur_seq+'_rl.txt'))
+            
+            #
+            plot_y_f = []
+            plot_y_d = []
+            plot_x = []
+            for j in range(aa_errx_full.shape[0]):
+                len_ = aa_errx_full[j,0] #距离
+                plot_x.append(len_)
+                plot_y_f.append(aa_errx_full[j,1])
+                plot_y_d.append(aa_errx_dpol[j,1])
+            fontsize_ = 10
+            fig = plt.figure()
+            plt.plot(plot_x, plot_y_f, "gs-", label="Our FULL")
+            plt.plot(plot_x, plot_y_d, "bo-", label="direction only")
+            plt.ylabel('Axisangle Error-x (deg/100m)', fontsize=fontsize_)
+            plt.xlabel('Path Length (m)', fontsize=fontsize_)
+            plt.legend(loc="upper right", prop={'size': fontsize_})
+            fig.set_size_inches(5, 5)
+            fig_pdf = out_dir + "/aa_errx_{:02}.pdf".format(i)
+            plt.savefig(fig_pdf, bbox_inches='tight', pad_inches=0)
+            plt.close(fig)
+
+            plot_y_f = []
+            plot_y_d = []
+            plot_x = []
+            for j in range(aa_erry_full.shape[0]):
+                len_ = aa_erry_full[j,0] #距离
+                plot_x.append(len_)
+                plot_y_f.append(aa_erry_full[j,1])
+                plot_y_d.append(aa_erry_dpol[j,1])
+            fontsize_ = 10
+            fig = plt.figure()
+            plt.plot(plot_x, plot_y_f, "gs-", label="Our FULL")
+            plt.plot(plot_x, plot_y_d, "bo-", label="direction only")
+            plt.ylabel('Axisangle Error-y (deg/100m)', fontsize=fontsize_)
+            plt.xlabel('Path Length (m)', fontsize=fontsize_)
+            plt.legend(loc="upper right", prop={'size': fontsize_})
+            fig.set_size_inches(5, 5)
+            fig_pdf = out_dir + "/aa_erry_{:02}.pdf".format(i)
+            plt.savefig(fig_pdf, bbox_inches='tight', pad_inches=0)
+            plt.close(fig)
+
+            plot_y_f = []
+            plot_y_d = []
+            plot_x = []
+            for j in range(aa_errz_full.shape[0]):
+                len_ = aa_errz_full[j,0] #距离
+                plot_x.append(len_)
+                plot_y_f.append(aa_errz_full[j,1])
+                plot_y_d.append(aa_errz_dpol[j,1])
+            fontsize_ = 10
+            fig = plt.figure()
+            plt.plot(plot_x, plot_y_f, "gs-", label="Our FULL")
+            plt.plot(plot_x, plot_y_d, "bo-", label="direction only")
+            plt.ylabel('Axisangle Error-z (deg/100m)', fontsize=fontsize_)
+            plt.xlabel('Path Length (m)', fontsize=fontsize_)
+            plt.legend(loc="upper right", prop={'size': fontsize_})
+            fig.set_size_inches(5, 5)
+            fig_pdf = out_dir + "/aa_errz_{:02}.pdf".format(i)
+            plt.savefig(fig_pdf, bbox_inches='tight', pad_inches=0)
+            plt.close(fig)
+
+            plot_y_f = []
+            plot_y_d = []
+            plot_x = []
+            for j in range(rot_err_full.shape[0]):
+                len_ = rot_err_full[j,0] #距离
+                plot_x.append(len_)
+                plot_y_f.append(rot_err_full[j,1])
+                plot_y_d.append(rot_err_dpol[j,1])
+            fontsize_ = 10
+            fig = plt.figure()
+            plt.plot(plot_x, plot_y_f, "gs-", label="Our FULL")
+            plt.plot(plot_x, plot_y_d, "bo-", label="direction only")
+            plt.ylabel('Rotation Error (deg/100m)', fontsize=fontsize_)
+            plt.xlabel('Path Length (m)', fontsize=fontsize_)
+            plt.legend(loc="upper right", prop={'size': fontsize_})
+            fig.set_size_inches(5, 5)
+            fig_pdf = out_dir + "/rot_err_{:02}.pdf".format(i)
+            plt.savefig(fig_pdf, bbox_inches='tight', pad_inches=0)
+            plt.close(fig)
+        
+        print("---plot done---")
