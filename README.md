@@ -14,7 +14,7 @@ We include several common metrics in evaluating visual odometry, including
 We recommend using [Anaconda](https://www.anaconda.com/distribution/) for installing the prerequisites.
 
 ```
-conda env create -f requirement.yml -p kitti_eval # install prerequisites
+conda env create -f requirement.yml
 conda activate kitti_eval  # activate the environment [kitti_eval]
 ```
 

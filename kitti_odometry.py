@@ -615,12 +615,12 @@ class KittiEvalOdom():
         ave_t_err, ave_r_err, ave_aa_err_x, ave_aa_err_y, ave_aa_err_z, ate, rpe_trans, rpe_rot = errs
         lines = []
         lines.append("Sequence: \t {} \n".format(seq) )
-        lines.append("Trans. err. (%): \t {:.3f} \n".format(ave_t_err*100))
-        lines.append("Rot. err. (deg/100m): \t {:.3f} \n".format(ave_r_err/np.pi*180*100))
+        lines.append("Trans. err. (%): \t {:.6f} \n".format(ave_t_err*100))
+        lines.append("Rot. err. (deg/100m): \t {:.6f} \n".format(ave_r_err/np.pi*180*100))
         lines.append("aa. errx. (deg/100m): \t {:.3f} \n".format(ave_aa_err_x/np.pi*180*100))
         lines.append("aa. erry. (deg/100m): \t {:.3f} \n".format(ave_aa_err_y/np.pi*180*100))
         lines.append("aa. errz. (deg/100m): \t {:.3f} \n".format(ave_aa_err_z/np.pi*180*100))
-        lines.append("ATE (m): \t {:.3f} \n".format(ate))
+        lines.append("ATE (m): \t {:.6f} \n".format(ate))
         lines.append("RPE (m): \t {:.3f} \n".format(rpe_trans))
         lines.append("RPE (deg): \t {:.3f} \n\n".format(rpe_rot * 180 /np.pi))
         for line in lines:
@@ -731,9 +731,9 @@ class KittiEvalOdom():
             print("Sequence: " + str(i))
             print("Translational error (%): ", ave_t_err*100)
             print("Rotational error (deg/100m): ", ave_r_err/np.pi*180*100)
-            print("aa-x error (deg/100m): ", ave_aa_err_x/np.pi*180*100)
-            print("aa-y error (deg/100m): ", ave_aa_err_y/np.pi*180*100)
-            print("aa-z error (deg/100m): ", ave_aa_err_z/np.pi*180*100)
+            # print("aa-x error (deg/100m): ", ave_aa_err_x/np.pi*180*100)
+            # print("aa-y error (deg/100m): ", ave_aa_err_y/np.pi*180*100)
+            # print("aa-z error (deg/100m): ", ave_aa_err_z/np.pi*180*100)
             ave_t_errs.append(ave_t_err)
             ave_r_errs.append(ave_r_err)
             ave_aa_errs_x.append(ave_aa_err_x)

@@ -1,0 +1,5 @@
+__pycache__
+result/ablation
+result/*/errors
+result/*/plot_error
+result/*/plot_path

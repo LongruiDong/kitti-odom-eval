@@ -19,7 +19,7 @@ parser.add_argument('--seqs',
 args = parser.parse_args()
 
 eval_tool = KittiEvalOdom()
-gt_dir = "dataset/kitti_odom/gt_poses/"
+gt_dir = "/home/dlr/Project/kitti-odom-eval/dataset/kitti_odom/gt_poses/"
 result_dir = args.result
 
 continue_flag = input("Evaluate result in {}? [y/n]".format(result_dir))
