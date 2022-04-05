@@ -77,8 +77,9 @@ class KittiEvalOdom():
         vo_eval = KittiEvalOdom()
         vo_eval.eval(gt_pose_txt_dir, result_pose_txt_dir)
     """
-    def __init__(self):
-        self.lengths = [100, 200, 300, 400, 500, 600, 700, 800]
+    def __init__(self): #关于评估长度 为了查看闭环的影响  https://github.com/wh200720041/iscloam/issues/11#issuecomment-666942316
+        self.lengths = [250, 500, 750, 1000, 1250, 1500, 1750, 2000] # [250, 500, 750, 1000, 1250, 1500, 1750, 2000] [100, 200, 300, 400, 500, 600, 700, 800]
+        print('evaluate lenths: \n', self.lengths)
         self.num_lengths = len(self.lengths)
 
     def load_poses_from_txt(self, file_name):
@@ -614,15 +615,17 @@ class KittiEvalOdom():
         """
         ave_t_err, ave_r_err, ave_aa_err_x, ave_aa_err_y, ave_aa_err_z, ate, rpe_trans, rpe_rot = errs
         lines = []
-        lines.append("Sequence: \t {} \n".format(seq) )
-        lines.append("Trans. err. (%): \t {:.6f} \n".format(ave_t_err*100))
-        lines.append("Rot. err. (deg/100m): \t {:.6f} \n".format(ave_r_err/np.pi*180*100))
-        lines.append("aa. errx. (deg/100m): \t {:.3f} \n".format(ave_aa_err_x/np.pi*180*100))
-        lines.append("aa. erry. (deg/100m): \t {:.3f} \n".format(ave_aa_err_y/np.pi*180*100))
-        lines.append("aa. errz. (deg/100m): \t {:.3f} \n".format(ave_aa_err_z/np.pi*180*100))
-        lines.append("ATE (m): \t {:.6f} \n".format(ate))
-        lines.append("RPE (m): \t {:.3f} \n".format(rpe_trans))
-        lines.append("RPE (deg): \t {:.3f} \n\n".format(rpe_rot * 180 /np.pi))
+        # lines.append("Sequence: \t {} \n".format(seq) )
+        # lines.append("Trans. err. (%): \t {:.6f} \n".format(ave_t_err*100))
+        # lines.append("Rot. err. (deg/100m): \t {:.6f} \n".format(ave_r_err/np.pi*180*100))
+        # lines.append("aa. errx. (deg/100m): \t {:.3f} \n".format(ave_aa_err_x/np.pi*180*100))
+        # lines.append("aa. erry. (deg/100m): \t {:.3f} \n".format(ave_aa_err_y/np.pi*180*100))
+        # lines.append("aa. errz. (deg/100m): \t {:.3f} \n".format(ave_aa_err_z/np.pi*180*100))
+        # lines.append("ATE (m): \t {:.6f} \n".format(ate))
+        # lines.append("RPE (m): \t {:.3f} \n".format(rpe_trans))
+        # lines.append("RPE (deg): \t {:.3f} \n\n".format(rpe_rot * 180 /np.pi))
+        # lines.append("Sequence: \t Trans. err. (%): \t Rot. err. (deg/100m): \t ATE (m): \t RPE (m): \t RPE (deg): \n")
+        lines.append("{} \t {:.5f} \t {:.5f} \t {:.5f} \t {:.3f} \t {:.3f} \n".format(seq, ave_t_err*100, ave_r_err/np.pi*180*100, ate, rpe_trans, rpe_rot * 180 /np.pi))
         for line in lines:
             f.writelines(line)
 
@@ -662,7 +665,7 @@ class KittiEvalOdom():
         self.plot_error_dir = result_dir + "/plot_error"
         result_txt = os.path.join(result_dir, "result.txt")
         f = open(result_txt, 'w')
-
+        f.writelines("Sequence: \t Trans. err. (%): \t Rot. err. (deg/100m): \t ATE (m): \t RPE (m): \t RPE (deg): \n")
         if not os.path.exists(error_dir):
             os.makedirs(error_dir)
         if not os.path.exists(self.plot_path_dir):
@@ -728,9 +731,9 @@ class KittiEvalOdom():
 
             # compute overall error kitti metric add aa_err
             ave_t_err, ave_r_err, ave_aa_err_x, ave_aa_err_y, ave_aa_err_z = self.compute_overall_err(seq_err)
-            print("Sequence: " + str(i))
-            print("Translational error (%): ", ave_t_err*100)
-            print("Rotational error (deg/100m): ", ave_r_err/np.pi*180*100)
+            # print("Sequence: " + str(i))
+            # print("Translational error (%): ", ave_t_err*100)
+            # print("Rotational error (deg/100m): ", ave_r_err/np.pi*180*100)
             # print("aa-x error (deg/100m): ", ave_aa_err_x/np.pi*180*100)
             # print("aa-y error (deg/100m): ", ave_aa_err_y/np.pi*180*100)
             # print("aa-z error (deg/100m): ", ave_aa_err_z/np.pi*180*100)
@@ -743,14 +746,14 @@ class KittiEvalOdom():
             # Compute ATE
             ate = self.compute_ATE(poses_gt, poses_result)
             seq_ate.append(ate)
-            print("ATE (m): ", ate)
+            # print("ATE (m): ", ate)
 
             # Compute RPE
             rpe_trans, rpe_rot = self.compute_RPE(poses_gt, poses_result)
             seq_rpe_trans.append(rpe_trans)
             seq_rpe_rot.append(rpe_rot)
-            print("RPE (m): ", rpe_trans)
-            print("RPE (deg): ", rpe_rot * 180 /np.pi)
+            # print("RPE (m): ", rpe_trans)
+            # print("RPE (deg): ", rpe_rot * 180 /np.pi)
 
             # Plotting
             self.plot_trajectory(poses_gt, poses_result, i)
@@ -762,16 +765,23 @@ class KittiEvalOdom():
             
         f.close()    
 
-        # print("-------------------- For Copying ------------------------------")
-        # for i in range(len(ave_t_errs)):
-        #     print("{0:.2f}".format(ave_t_errs[i]*100))
-        #     print("{0:.2f}".format(ave_r_errs[i]/np.pi*180*100))
-        #     print("{0:.2f}".format(ave_aa_errs_x[i]/np.pi*180*100))
-        #     print("{0:.2f}".format(ave_aa_errs_y[i]/np.pi*180*100))
-        #     print("{0:.2f}".format(ave_aa_errs_z[i]/np.pi*180*100))
-        #     print("{0:.2f}".format(seq_ate[i]))
-        #     print("{0:.3f}".format(seq_rpe_trans[i]))
-        #     print("{0:.3f}".format(seq_rpe_rot[i] * 180 / np.pi))
+        print("-------------------- For Copying ------------------------------")
+        print("\nSeq\tTranslation(%)\tRot(°/100m)\t ATE(RMSE m)\n")
+        for i in range(len(ave_t_errs)):
+            # print("{0:.2f}".format(ave_t_errs[i]*100))
+            # print("{0:.2f}".format(ave_r_errs[i]/np.pi*180*100))
+            # print("{0:.2f}".format(ave_aa_errs_x[i]/np.pi*180*100))
+            # print("{0:.2f}".format(ave_aa_errs_y[i]/np.pi*180*100))
+            # print("{0:.2f}".format(ave_aa_errs_z[i]/np.pi*180*100))
+            # print("{0:.2f}".format(seq_ate[i]))
+            # print("{0:.3f}".format(seq_rpe_trans[i]))
+            # print("{0:.3f}".format(seq_rpe_rot[i] * 180 / np.pi))
+            print("%02d  \t%.5f   \t%.5f \t%.5f"%( int(i), ave_t_errs[i]*100, ave_r_errs[i]/np.pi*180*100, seq_ate[i]))
+        #计算平均值
+        t_avg = np.mean(ave_t_errs) * 100 #11个序列的相对平移误差 %
+        r_avg = np.mean(ave_r_errs)/np.pi*180*100 #
+        rmse_avg = np.mean(seq_ate)
+        print("AVG  \t%.5f   \t%.5f \t%.5f"%( t_avg, r_avg, rmse_avg))
 
 
     def rotcomp(self, full_dir, dponly_dir,
