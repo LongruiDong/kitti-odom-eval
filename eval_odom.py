@@ -5,6 +5,7 @@ import argparse
 from kitti_odometry import KittiEvalOdom
 
 parser = argparse.ArgumentParser(description='KITTI evaluation')
+parser.add_argument('--maxlenth', type=int, required=True, help="select max evaluate lenth: 800(default), 2000", default=800)
 parser.add_argument('--result', type=str, required=True,
                     help="Result directory")
 parser.add_argument('--align', type=str, 
@@ -18,7 +19,7 @@ parser.add_argument('--seqs',
                     default=None)
 args = parser.parse_args()
 
-eval_tool = KittiEvalOdom()
+eval_tool = KittiEvalOdom(args)
 gt_dir = "/home/dlr/Project/kitti-odom-eval/dataset/kitti_odom/gt_poses/"
 result_dir = args.result
 

@@ -77,8 +77,11 @@ class KittiEvalOdom():
         vo_eval = KittiEvalOdom()
         vo_eval.eval(gt_pose_txt_dir, result_pose_txt_dir)
     """
-    def __init__(self): #关于评估长度 为了查看闭环的影响  https://github.com/wh200720041/iscloam/issues/11#issuecomment-666942316
-        self.lengths = [250, 500, 750, 1000, 1250, 1500, 1750, 2000] # [250, 500, 750, 1000, 1250, 1500, 1750, 2000] [100, 200, 300, 400, 500, 600, 700, 800]
+    def __init__(self, args): #关于评估长度 为了查看闭环的影响  https://github.com/wh200720041/iscloam/issues/11#issuecomment-666942316
+        self.rawlengths = [100, 200, 300, 400, 500, 600, 700, 800] # [250, 500, 750, 1000, 1250, 1500, 1750, 2000] [100, 200, 300, 400, 500, 600, 700, 800]
+        maxlen = int(args.maxlenth)
+        ratio = float(maxlen)/max(self.rawlengths)
+        self.lengths = [int(li * ratio) for li in self.rawlengths]
         print('evaluate lenths: \n', self.lengths)
         self.num_lengths = len(self.lengths)
 
