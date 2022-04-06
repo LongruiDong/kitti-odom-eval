@@ -79,9 +79,14 @@ class KittiEvalOdom():
     """
     def __init__(self, args): #关于评估长度 为了查看闭环的影响  https://github.com/wh200720041/iscloam/issues/11#issuecomment-666942316
         self.rawlengths = [100, 200, 300, 400, 500, 600, 700, 800] # [250, 500, 750, 1000, 1250, 1500, 1750, 2000] [100, 200, 300, 400, 500, 600, 700, 800]
-        maxlen = int(args.maxlenth)
-        ratio = float(maxlen)/max(self.rawlengths)
-        self.lengths = [int(li * ratio) for li in self.rawlengths]
+        # maxlen = int(args.maxlenth)
+        # ratio = float(maxlen)/max(self.rawlengths)
+        # self.lengths = [int(li * ratio) for li in self.rawlengths]
+        # Create evaluation list
+        if args.setlenths is None:
+            self.lengths = self.rawlengths
+        else:
+            self.lengths = args.setlenths
         print('evaluate lenths: \n', self.lengths)
         self.num_lengths = len(self.lengths)
 
@@ -779,7 +784,8 @@ class KittiEvalOdom():
             # print("{0:.2f}".format(seq_ate[i]))
             # print("{0:.3f}".format(seq_rpe_trans[i]))
             # print("{0:.3f}".format(seq_rpe_rot[i] * 180 / np.pi))
-            print("%02d  \t%.5f   \t%.5f \t%.5f"%( int(i), ave_t_errs[i]*100, ave_r_errs[i]/np.pi*180*100, seq_ate[i]))
+            seqq = '{:02}'.format(self.eval_seqs[i])
+            print("%s  \t%.5f   \t%.5f \t%.5f"%( seqq, ave_t_errs[i]*100, ave_r_errs[i]/np.pi*180*100, seq_ate[i]))
         #计算平均值
         t_avg = np.mean(ave_t_errs) * 100 #11个序列的相对平移误差 %
         r_avg = np.mean(ave_r_errs)/np.pi*180*100 #
