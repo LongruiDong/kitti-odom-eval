@@ -71,6 +71,24 @@ def umeyama_alignment(x, y, with_scale=False):
     return r, t, c
 
 
+def dict_slice(adict, start, end):
+    """对字典切片 都是闭区间
+
+    Args:
+        adict (dict): _description_
+        start (int): 起始位置
+        end (int): 终止位置
+
+    Returns:
+        _type_: _description_
+    """
+    keys = adict.keys()
+    dict_slice = {}
+    for k in list(keys)[start:end+1]: #前闭后开 故+1
+        dict_slice[k] = adict[k]
+    return dict_slice
+
+
 class KittiEvalOdom():
     """Evaluate odometry result
     Usage example:
@@ -698,7 +716,18 @@ class KittiEvalOdom():
             poses_result = self.load_poses_from_txt(result_dir+"/"+file_name)
             poses_gt = self.load_poses_from_txt(self.gt_dir + "/" + file_name)
             self.result_file_name = result_dir+file_name
-
+            # for lio-sam 可能出现pose_result的长度多于gt的情况 要截取掉多于gt的那些
+            len_result = len(poses_result)
+            len_gt = len(poses_gt)
+            if len_result != len_gt:
+                print("WARNING: pose_result len {:d} != pose_gt len {:d}".format(len_result, len_gt))
+                if len_result > len_gt:
+                    poses_result = dict_slice(poses_result, 0, len_gt-1)
+                    print("cut result to len {:d}".format(len(poses_result)))
+                else:
+                    poses_gt = dict_slice(poses_gt, 0, len_result-1)
+                    print("cut gt to len {:d}".format(len(poses_gt)))
+                    
             # Pose alignment to first frame first pose is I
             idx_0 = sorted(list(poses_result.keys()))[0]
             pred_0 = poses_result[idx_0]
